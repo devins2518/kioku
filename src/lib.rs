@@ -187,6 +187,14 @@ impl Arena {
         unsafe { transmute(memory) }
     }
 
+    /// Allocates a `T` initialized to `value`. T does not need to be copy
+    #[inline]
+    pub fn alloc_no_copy<T>(&self, value: T) -> &mut T {
+        let memory = self.alloc_raw(std::alloc::Layout::new::<T>()) as *mut MaybeUninit<T>;
+        let memory_ref = unsafe { memory.as_mut().unwrap() };
+        memory_ref.write(value)
+    }
+
     /// Allocates a `[T]` with all elements initialized to `value`.
     #[inline]
     pub fn alloc_array<T: Copy>(&self, value: T, len: usize) -> &mut [T] {
