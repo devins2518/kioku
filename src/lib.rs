@@ -56,6 +56,7 @@
 //! However, you *can* allocate zero length arrays using the array allocation
 //! methods.  Only `T` itself must be non-zero-sized.
 
+#![feature(allocator_api)]
 // Normally I agree with this lint, but in this particular library's case it
 // just gets too noisy not using transmute.  It actually obscures intent when
 // reading the code.
@@ -76,11 +77,12 @@
 #![allow(clippy::mut_from_ref)]
 
 use std::{
-    alloc::Layout,
+    alloc::{AllocError, Allocator, Layout},
     cell::{Cell, RefCell},
     collections::LinkedList,
     fmt,
     mem::{size_of, transmute, MaybeUninit},
+    ptr::NonNull,
     slice,
 };
 
@@ -520,6 +522,18 @@ impl Arena {
 
     //     (occupied, allocated, blocks)
     // }
+}
+
+unsafe impl Allocator for Arena {
+    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        let memory: &mut [MaybeUninit<u8>] =
+            self.alloc_array_align_uninit(layout.size(), layout.align());
+        let slice: &mut [u8] = unsafe { std::mem::transmute(memory) };
+        Ok(slice.into())
+    }
+
+    // Do nothing for now, it will be deallocated when the Arena is dropped
+    unsafe fn deallocate(&self, _ptr: NonNull<u8>, _layout: Layout) {}
 }
 
 /// Strategy for determining the size of new blocks.
